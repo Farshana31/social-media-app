@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ConnectHub - Social Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 font-sans antialiased">
+
+    <!-- Navbar -->
+    <nav class="bg-white shadow sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-blue-600 flex items-center gap-2">
+                <i class="fa-solid fa-share-nodes"></i> ConnectHub
+            </h1>
+            <div id="nav-profile" class="flex items-center gap-3">
+                <!-- Loaded via JS -->
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main App Container -->
+    <main class="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        
+        <!-- Post Creation Form -->
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <h3 class="font-semibold text-gray-700 mb-2">Share something today</h3>
+            <form id="post-form" class="space-y-3">
+                <textarea id="post-content" rows="3" placeholder="What's on your mind? Add hashtags like #tech..." class="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" required></textarea>
+                <input type="url" id="post-image" placeholder="Image URL (Optional)" class="w-full p-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition w-full">Post</button>
+            </form>
+        </div>
+
+        <!-- Live Feed Container -->
+        <div id="feed" class="space-y-6">
+            <div class="text-center text-gray-500 py-8">Loading your feed...</div>
+        </div>
+
+    </main>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api';
+        const CURRENT_USER_ID = "1";
+        let currentUser = null;
+
+        async function fetchUser() {
+            try {
+                const res = await fetch(API_URL + '/user/' + CURRENT_USER_ID);
+                currentUser = await res.json();
+                document.getElementById('nav-profile').innerHTML = 
+                    '<span class="font-semibold text-gray-700 text-sm hidden sm:inline">' + currentUser.name + '</span>' +
+                    '<img src="' + currentUser.avatar + '" alt="Avatar" class="w-9 h-9 rounded-full object-cover border">';
+            } catch (err) {
+                console.error("Profile Fetch Error", err);
+            }
+        }
+
+        async function fetchPosts() {
+            try {
+                const res = await fetch(API_URL + '/posts');
+                const posts = await res.json();
+                const feed = document.getElementById('feed');
+                feed.innerHTML = '';
+
+                if(posts.length === 0) {
+                    feed.innerHTML = '<div class="bg-white p-6 rounded-xl text-center text-gray-500 shadow-sm border">No posts yet!</div>';
+                    return;
+                }
+
+                posts.forEach(function(post) {
+                    const isLiked = post.likedBy.includes(CURRENT_USER_ID);
+                    const postCard = document.createElement('div');
+                    postCard.className = 'bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden';
+                    
+                    let commentsHTML = '';
+                    post.comments.forEach(function(c) {
+                        commentsHTML += 
+                            '<div class="bg-gray-50 p-2.5 rounded-lg text-xs">' +
+                                '<span class="font-semibold text-gray-800">' + c.userName + ': </span>' +
+                                '<span class="text-gray-600">' + c.text + '</span>' +
+                            '</div>';
+                    });
+
+                    let imageHTML = post.image ? '<img src="' + post.image + '" class="w-full max-h-96 object-cover border-y border-gray-100">' : '';
+                    let heartIcon = isLiked ? 'fa-solid fa-heart' : 'fa-regular fa-heart';
+                    let heartColor = isLiked ? 'text-red-500 font-semibold' : 'hover:text-red-500';
+
+                    postCard.innerHTML = 
+                        '<div class="p-4 flex items-center gap-3">' +
+                            '<img src="' + post.userAvatar + '" class="w-10 h-10 rounded-full object-cover border border-gray-200">' +
+                            '<div>' +
+                                '<h4 class="font-bold text-gray-800 text-sm">' + post.userName + '</h4>' +
+                                '<p class="text-[11px] text-gray-400">' + new Date(post.createdAt).toLocaleTimeString() + '</p>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="px-4 pb-3 text-sm text-gray-700 leading-relaxed">' + post.content + '</div>' +
+                        imageHTML +
+                        '<div class="px-4 py-2 flex items-center gap-6 border-b border-gray-100 text-sm text-gray-600">' +
+                            '<button onclick="likePost(\'' + post.id + '\')" class="flex items-center gap-1.5 focus:outline-none cursor-pointer ' + heartColor + '">' +
+                                '<i class="' + heartIcon + '"></i><span>' + post.likes + '</span>' +
+                            '</button>' +
+                            '<div class="flex items-center gap-1.5"><i class="fa-regular fa-comment"></i><span>' + post.comments.length + '</span></div>' +
+                        '</div>' +
+                        '<div class="p-4 bg-gray-50/50 space-y-3">' +
+                            '<div class="space-y-2 max-h-40 overflow-y-auto">' + commentsHTML + '</div>' +
+                            '<div class="flex gap-2 mt-2">' +
+                                '<input type="text" id="input-' + post.id + '" placeholder="Write a comment..." class="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500">' +
+                                '<button onclick="addComment(\'' + post.id + '\')" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700 transition">Reply</button>' +
+                            '</div>' +
+                        '</div>';
+                    feed.appendChild(postCard);
+                });
+            } catch (err) {
+                console.error("Feed Fetch Error", err);
+            }
+        }
+
+        document.getElementById('post-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const content = document.getElementById('post-content').value;
+            const image = document.getElementById('post-image').value;
+            try {
+                const res = await fetch(API_URL + '/posts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: CURRENT_USER_ID, content: content, image: image })
+                });
+                if(res.ok) {
+                    document.getElementById('post-content').value = '';
+                    document.getElementById('post-image').value = '';
+                    fetchPosts();
+                }
+            } catch (err) { console.error(err); }
+        });
+
+        async function likePost(postId) {
+            try {
+                await fetch(API_URL + '/posts/' + postId + '/like', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: CURRENT_USER_ID })
+                });
+                fetchPosts();
+            } catch (err) { console.error(err); }
+        }
+
+        async function addComment(postId) {
+            const input = document.getElementById('input-' + postId);
+            const text = input.value.trim();
+            if(!text) return;
+            try {
+                const res = await fetch(API_URL + '/posts/' + postId + '/comment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userName: currentUser.name, text: text })
+                });
+                if(res.ok) { input.value = ''; fetchPosts(); }
+            } catch (err) { console.error(err); }
+        }
+
+        fetchUser();
+        fetchPosts();
+    </script>
+</body>
+</html>
