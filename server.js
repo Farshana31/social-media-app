@@ -101,7 +101,7 @@ app.post('/api/posts/:id/comment', function(req, res) {
     res.status(201).json(newComment);
 });
 
-const PORT = 5000;
+const PORT = process.env.port || 5000;
 app.listen(PORT, function() {
     console.log("Backend server running perfectly on port " + PORT);
 });
