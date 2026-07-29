@@ -2,6 +2,15 @@ const express = require('express');
 const cors = require('cors');
 
 const app = express();
+const path = require('path');
+
+// Serve static files from the root directory
+app.use(express.static(__dirname));
+
+// Route to serve the index.html file
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 app.use(cors());
 app.use(express.json());
 
